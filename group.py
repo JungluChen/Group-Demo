@@ -1,10 +1,7 @@
 import streamlit as st
-import pandas as pd
-import sqlite3
-from datetime import datetime, date
 from PIL import Image
 import io
-from streamlit_star_rating import st_star_rating
+import sqlite3
 
 # Initialize SQLite Database
 conn = sqlite3.connect('comments.db', check_same_thread=False)
@@ -75,18 +72,15 @@ def display_stars(rating, max_rating=5):
     stars = full_star * int(rating) + empty_star * (max_rating - int(rating))
     return stars
 
-def star_rating_input():
-    st.markdown("### Your Rating")
-    rating = st_star_rating("Please rate the CV by clicking on the stars below:", maxValue=5, defaultValue=0, key="rating_input")
-    if rating == 0:
-        st.warning("Please select a rating by clicking on the stars.")
-    return rating
+# Custom star rating input using Streamlit's built-in radio buttons
+def custom_star_rating(label="Rate", max_stars=5, key=None):
+    return st.radio(label, list(range(1, max_stars + 1)), index=max_stars - 1, key=key)
 
 # Add event to CV
 def add_event_to_cv():
     event_name = st.text_input('Event Name', key='event_name')
-    start_date = st.date_input('Start Date', value=date.today(), key='start_date')
-    end_date = st.date_input('End Date', value=date.today(), key='end_date')
+    start_date = st.date_input('Start Date', value=None, key='start_date')
+    end_date = st.date_input('End Date', value=None, key='end_date')
     points = st.text_area('Responsibilities or Achievements (use bullet points)', key='points')
 
     if st.button('Add Event'):
@@ -112,17 +106,15 @@ def display_events(events):
 # Create CV page
 def create_cv_page():
     st.header('Create Your CV')
-    # st.markdown("---").
-    st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
+
     name = st.text_input('Name')
     school = st.text_input('School')
     department = st.text_input('Department')
     picture_file = st.file_uploader('Upload Picture', type=['jpg', 'jpeg', 'png'])
-    st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
+
     # Capabilities Input
     st.subheader("Add Your Capabilities")
     capabilities = st.text_area("Enter your capabilities, separated by commas (e.g., Python, Data Analysis, Leadership)")
-    st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
 
     st.subheader("Add Your Experiences/Events")
 
@@ -131,7 +123,7 @@ def create_cv_page():
         st.session_state['events'] = []
 
     add_event_to_cv()
-    st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
+
     # Preview events
     st.subheader("Events Preview")
     if st.session_state['events']:
@@ -160,7 +152,7 @@ def view_cvs_page():
         cv_names = list(cv_dict.keys())
 
         selected_cv_name = st.selectbox('Select a CV to view:', cv_names)
-        st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)    
+
         if selected_cv_name:
             selected_cv = cv_dict[selected_cv_name]
             st.subheader(selected_cv[1])  # Name
@@ -172,16 +164,14 @@ def view_cvs_page():
 
             st.write(f'**School:** {selected_cv[2]}')
             st.write(f'**Department:** {selected_cv[3]}')
-            st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)           
+            
             # Display Capabilities
             st.subheader("Capabilities")
-
             capabilities_list = selected_cv[5].split(',')
             for capability in capabilities_list:
                 st.write(f"- {capability.strip()}")
-            st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
-            st.subheader("Experiences/Events")
 
+            st.subheader("Experiences/Events")
             events = get_events(selected_cv[0])
             for event in events:
                 st.write(f"### {event[2]} ({event[3]} - {event[4]})")
@@ -191,7 +181,6 @@ def view_cvs_page():
             # Display Average Rating
             average_rating = get_average_rating(selected_cv[0])
             stars = display_stars(round(average_rating))
-            st.markdown("<hr style='border: 1px solid #D3D3D3;'>", unsafe_allow_html=True)
             st.write(f'**Average Rating:** {stars} ({average_rating:.1f}/5)')
 
             st.subheader('Comments')
@@ -201,18 +190,23 @@ def view_cvs_page():
                 st.write(f'*{timestamp}* - **Rating:** {stars} ({rating}/5) - {comment}')
 
             st.subheader('Add a Comment and Rating')
+            
+            # New input box for user name
+            commenter_name = st.text_input('Your Name', key='commenter_name')
+
             comment_text = st.text_area('Your Comment', key='comment')
-            rating = star_rating_input()
+            rating = custom_star_rating(label="Your Rating", key='custom_rating')
+
             if st.button('Submit Comment'):
-                if comment_text and rating > 0:
-                    add_comment(selected_cv[0], comment_text, rating)
+                if commenter_name and comment_text and rating > 0:
+                    full_comment = f"{commenter_name}: {comment_text}"
+                    add_comment(selected_cv[0], full_comment, rating)
                     st.success('Comment and rating added!')
                     st.experimental_rerun()
                 else:
-                    st.error('Please enter a comment and select a rating.')
+                    st.error('Please enter your name, a comment, and select a rating.')
     else:
         st.info('No CVs available. Please create one!')
-
 # Main function
 def main():
     st.title('CV Showcase and Comments')
